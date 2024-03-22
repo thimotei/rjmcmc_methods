@@ -35,7 +35,7 @@ namespace rjmc_sero{
     struct RJMC_SERO_D
     {
         RJMC_SERO_D() {}
-        
+
         bool conPropIn = true;
         bool disPropIn = false;
 
@@ -48,7 +48,7 @@ namespace rjmc_sero{
         MatrixXd currentCovarianceMatrix;
         double currentLogPosterior;
         VectorXd proposalSample;
-        
+
         VectorXd currentJump;
         VectorXd proposalJump;
         VectorXd historicJump;
@@ -64,7 +64,9 @@ namespace rjmc_sero{
         RObject dataList;
         List dataListCPP;
 
-        double counterFuncEval, counterAccepted, counterPosterior ,counterAdaptive;
+        int counterPosterior;
+
+        double counterFuncEval, counterAccepted ,counterAdaptive;
         double counterNonAdaptive;
         double proposedLogPosterior, alpha, covarMaxVal, covarInitVal, covarInitValAdapt;
 
@@ -85,10 +87,10 @@ namespace rjmc_sero{
             double logPrior = this->evaluateLogPrior(param, jump, dataList);
             if (isinf(logPrior))
                 return log(0);
-          
+
             double logLikelihood_ab = this->evaluateLogLikelihood(param, jump, covariance, dataList);
-            
-            double logLikelihood_time = 0; 
+
+            double logLikelihood_time = 0;
             for (int i = 0; i < this->N; i++) {
                 if (jump[i] > -1) {
                     Rcout << "i: " << i << std::endl;
@@ -100,20 +102,20 @@ namespace rjmc_sero{
 
             return logPrior + logLikelihood_ab + logLikelihood_time;
         }
-        
+
         // "A handy approximation for the error function and its inverse" by Sergei Winitzki.
         double ErfInv(float x){
             double tt1, tt2, lnx, sgn;
             sgn = (x < 0) ? -1.0 : 1.0;
-            
+
             x = (1 - x)*(1 + x);
             lnx = logf(x);
-            
-            double pi = atan(1)*4;    
+
+            double pi = atan(1)*4;
 
             tt1 = 2/(pi*0.147) + 0.5 * lnx;
             tt2 = 1/(0.147) * lnx;
-            
+
             return(sgn*sqrtf(-tt1 + sqrtf(tt1*tt1 - tt2)));
         }
 
@@ -134,7 +136,7 @@ namespace rjmc_sero{
 
         void initialiseClass(List settings, RObject dataList, int i)
         {
-            this->dataList = dataList;            
+            this->dataList = dataList;
             this->dataListCPP = as<List>(dataList);
 
             // Useful for internal functions
@@ -163,7 +165,7 @@ namespace rjmc_sero{
             this->updatesAdaptiveCov = settings["updatesAdaptiveCov"];
             this->onDebug = settings["onDebug"];
             this->lengthJumpVec = settings["lengthJumpVec"];
-            
+
             this->lowerParBounds = settings["lowerParBounds"];
             this->upperParBounds = settings["upperParBounds"];
 
@@ -176,7 +178,7 @@ namespace rjmc_sero{
             this->counterPosterior = 0;
             this->counterAdaptive = 0;
             this->counterNonAdaptive = 0;
-            
+
             this->iPosterior = 0;
 
             this->posteriorSamplesLength = (this->iterations-this->burninPosterior)/(this->thin);
@@ -191,7 +193,7 @@ namespace rjmc_sero{
 
             this->nonadaptiveScalar = 0;
             this->adaptiveScalar = 0;
-            
+
             this->currentCovarianceMatrix = MatrixXd::Zero(this->numberFittedPar, this->numberFittedPar );
             this->nonadaptiveCovarianceMat = MatrixXd::Zero(this->numberFittedPar, this->numberFittedPar );
             this->adaptiveCovarianceMat = MatrixXd::Zero(this->numberFittedPar ,this->numberFittedPar );
@@ -200,15 +202,15 @@ namespace rjmc_sero{
             VectorXd initialJump;
             double initialLogLikelihood;
             MatrixXd initialCovarianceMatrix;
-            
+
             for(int parNum = 0; parNum < this->numberFittedPar ; parNum++){
                 this->nonadaptiveCovarianceMat(parNum,parNum) = this->covarInitVal*(this->upperParBounds(parNum) - this->lowerParBounds(parNum));
                 this->adaptiveCovarianceMat(parNum,parNum) = this->covarInitValAdapt*(this->upperParBounds(parNum) - this->lowerParBounds(parNum));
             }
-            
+
             this->nonadaptiveScalar = log(0.1*0.1/(double)this->numberFittedPar);
             this->adaptiveScalar = log(2.382*2.382/(double)this->numberFittedPar);
-            
+
             initialSample = this->samplePriorDistributions(this->dataList);
             initialJump = this->initialiseJump(this->dataList);
             this->currentCovarianceMatrix = this->nonadaptiveScalar*this->nonadaptiveCovarianceMat;
@@ -224,7 +226,7 @@ namespace rjmc_sero{
             this->currentJump = initialJump;
             this->historicJump = VectorXd::Constant(this->N, -1);
             this->currentLogPosterior = initialLogLikelihood;
-            
+
             double alphaMVN = -sqrt(2)*ErfInv(0.234-1);
             this->stepSizeRobbinsMonro = (1.0-1.0/(double)this->numberFittedPar)*(pow(2*3.141, 0.5)*exp(alphaMVN*alphaMVN*0.5))/(2*alphaMVN) + 1.0/(this->numberFittedPar*0.234*(1-0.234));
         }
@@ -243,19 +245,19 @@ namespace rjmc_sero{
             this->onAdaptiveCov = settings["onAdaptiveCov"];
             this->updatesAdaptiveCov = settings["updatesAdaptiveCov"];
             this->onDebug = settings["onDebug"];
-            
+
             this->lowerParBounds = settings["lowerParBounds"];
             this->upperParBounds = settings["upperParBounds"];
 
-            // Counters 
+            // Counters
             this->counterFuncEval = PTMCpar["counterFuncEval"];
             this->counterAccepted = PTMCpar["counterAccepted"];
             this->counterPosterior = PTMCpar["counterPosterior"];
             this->counterAdaptive = PTMCpar["counterAdaptive"];
             this->counterNonAdaptive = PTMCpar["counterNonAdaptive"];
-            
+
             this->posteriorSamplesLength = (int)PTMCpar["posteriorSamplesLength"] + (this->iterations-this->burninPosterior)/(this->thin);
-            
+
             this->posteriorOut = MatrixXd::Zero(this->posteriorSamplesLength, this->numberFittedPar+2);
             this->posteriorJump = MatrixXd::Zero(this->posteriorSamplesLength, this->lengthJumpVec);
 
@@ -266,22 +268,22 @@ namespace rjmc_sero{
             this->currentLogPosterior = PTMCpar["currentLogPosterior"];
             this->currentSampleMean = PTMCpar["currentSampleMean"];
             this->currentSample = PTMCpar["currentSample"];
-            
+
             this->proposalSample = PTMCpar["proposalSample"];
             this->nonadaptiveScalar = PTMCpar["nonadaptiveScalar"];
             this->adaptiveScalar = PTMCpar["adaptiveScalar"];
-            
+
             this->currentCovarianceMatrix = PTMCpar["currentCovarianceMatrix"];
             this->nonadaptiveCovarianceMat =PTMCpar["nonadaptiveCovarianceMat"];
             this->adaptiveCovarianceMat = PTMCpar["adaptiveCovarianceMat"];
-            
+
             double alphaMVN = -sqrt(2)*ErfInv(0.234-1);
             this->stepSizeRobbinsMonro = (1.0-1.0/(double)this->numberFittedPar)*(pow(2*3.141, 0.5)*exp(alphaMVN*alphaMVN*0.5))/(2*alphaMVN) + 1.0/(this->numberFittedPar*0.234*(1-0.234));
         }
-        
-        List saveRJMCpar() 
+
+        List saveRJMCpar()
         {
-            List RJMCpar = 
+            List RJMCpar =
                 Rcpp::List::create(
                     _["counterFuncEval"] = this->counterFuncEval,
                     _["counterAccepted"] = this->counterAccepted,
@@ -306,7 +308,7 @@ namespace rjmc_sero{
             );
             return RJMCpar;
         }
-        
+
         List runRJMCC()
         {
             if (onDebug) Rcpp::Rcout << "Pre: iterations" << std::endl;
@@ -322,13 +324,13 @@ namespace rjmc_sero{
             );
             return out;
         }
-        
+
         void updateAllChains()
         {
             if (onDebug) Rcpp::Rcout << "Pre: updateRJMC" << std::endl;
-            updateRJMC();            
+            updateRJMC();
             if (onDebug) Rcpp::Rcout << "Pre: updateGibbsTiming" << std::endl;
-            if (this->currInferredInfN != this->knownInfsN) { 
+            if (this->currInferredInfN != this->knownInfsN) {
                 updateGibbsTiming();
             }
 
@@ -337,10 +339,10 @@ namespace rjmc_sero{
             if (onDebug) Rcpp::Rcout << "Pre: updateOutputPosterior" << std::endl;
             updateOutputPosterior();
             if (onDebug) Rcpp::Rcout << "Pre: updateProposal" << std::endl;
-        
+
             consoleUpdatefunction();
         }
-        
+
         void updateRJMC() {
             if (onDebug) Rcpp::Rcout << "Pre: getAcceptanceRate" << std::endl;
             getAcceptanceRate();
@@ -354,7 +356,7 @@ namespace rjmc_sero{
         }
 
         void getAcceptanceRate()
-        {        
+        {
             this->isSampleAccepted = false;
            // Evaluate the ab kinetics parameters and do rjmcmc
             if (onDebug) Rcpp::Rcout << "Pre: selectProposalDist" << std::endl;
@@ -368,16 +370,16 @@ namespace rjmc_sero{
         }
 
         int sampleUnknownMissed() {
-            int s = uniformDiscreteDist(0, this->N - 1); 
+            int s = uniformDiscreteDist(0, this->N - 1);
             while ((this->knownInfsVec(s) == 1) || (this->currentJump(s) == -1) ) {
-                s = uniformDiscreteDist(0, this->N - 1); 
+                s = uniformDiscreteDist(0, this->N - 1);
             }
             return s;
         }
         int sampleUnknownNotMissed() {
-            int s = uniformDiscreteDist(0, this->N - 1); 
+            int s = uniformDiscreteDist(0, this->N - 1);
             while ((this->knownInfsVec(s) == 1) || (this->currentJump(s) != -1 )) {
-                s = uniformDiscreteDist(0, this->N - 1); 
+                s = uniformDiscreteDist(0, this->N - 1);
             }
             return s;
         }
@@ -467,7 +469,7 @@ namespace rjmc_sero{
 
         void updateGibbsTiming() {
             this->currJumpType = 1;
-            for (int i = 0; i < this->noGibbsSteps; i++) { 
+            for (int i = 0; i < this->noGibbsSteps; i++) {
                 this->proposalJump = this->currentJump;
 
                 this->gibbsIdx = this->sampleUnknownMissed(); // stuck here
@@ -481,7 +483,7 @@ namespace rjmc_sero{
                 updateProposalGibbs();
             }
         }
-        
+
         void selectProposalDist(bool update = true){
           //  if (onDebug) Rcpp::Rcout << "Post: selectProposalDist" << std::endl;
 
@@ -492,7 +494,7 @@ namespace rjmc_sero{
                 generateSampleFromAdaptiveProposalDist(update);
             }
         }
-        
+
         void generateSampleFromNonAdaptiveProposalDist(bool update = true)
         {
             double s;
@@ -505,10 +507,10 @@ namespace rjmc_sero{
 
             Mvn_sampler.updateCholesky(this->currentSample, this->currentCovarianceMatrix);
             this->proposalSample = Mvn_sampler.sampleTrunc(this->lowerParBounds, this->upperParBounds, 10, this->onDebug);
-            
+
             errorCheckVectorValid(this->proposalSample);
         }
-        
+
         void generateSampleFromAdaptiveProposalDist(bool update = true)
         {
             double s;
@@ -519,10 +521,10 @@ namespace rjmc_sero{
             this->currentCovarianceMatrix = s*this->adaptiveCovarianceMat;
             Mvn_sampler.updateCholesky(this->currentSample, this->currentCovarianceMatrix);
             this->proposalSample = Mvn_sampler.sampleTrunc(this->lowerParBounds, this->upperParBounds, 10, this->onDebug);
-            
+
             errorCheckVectorValid(this->proposalSample);
         }
-        
+
         void evaluateMetropolisRatio()
         {
             double rjadjustmentFactor = 0;
@@ -539,7 +541,7 @@ namespace rjmc_sero{
                 this->alpha = min(1.0, exp((this->proposedLogPosterior - this->currentLogPosterior + rjadjustmentFactor)));
             }
         }
-        
+
         void updateSampleAndLogPosterior()
         {
             if (uniformContinuousDist(0, 1) < this->alpha) {
@@ -553,7 +555,7 @@ namespace rjmc_sero{
                 this->proposalSample = this->currentSample;
                 this->proposalJump = this->currentJump;
                 this->proposedLogPosterior = this->currentLogPosterior;
-                this->propInferredInfN = this->currInferredInfN;                
+                this->propInferredInfN = this->currInferredInfN;
             }
         }
         void updateJumpHistoric()
@@ -572,34 +574,34 @@ namespace rjmc_sero{
         }
         void updateOutputPosterior()
         {
-            if ((this->workingIteration > (this->burninPosterior-1)) && 
+            if ((this->workingIteration > (this->burninPosterior-1)) &&
                 (this->workingIteration%thin == 0) ) {
 
                 for (int p = 0; p < this->numberFittedPar; p++)
                     this->posteriorOut(this->counterPosterior, p) = this->currentSample(p);
-                
+
                 this->posteriorOut(this->counterPosterior, this->numberFittedPar) = this->currentLogPosterior;
                 this->posteriorOut(this->counterPosterior, this->numberFittedPar+1) = (double)this->counterAccepted/(double)this->counterFuncEval;
                 for (int j = 0; j < this->lengthJumpVec; j++) {
                     this->posteriorJump(this->counterPosterior, j) = this->currentJump(j);
                 }
-                this->counterPosterior++;            
+                this->counterPosterior++;
             }
         }
-        
+
         void updateProposal()
-        {       
+        {
             if (this->isProposalAdaptive){
                 this->adaptiveScalar += this->stepSizeRobbinsMonro * pow(1+this->counterAdaptive,-0.5)*(this->alpha - 0.234);
                 errorCheckNumberValid(this->adaptiveScalar);
                 trimAdaptiveValues(this->adaptiveScalar);
             }
-            else{   
+            else{
                 this->nonadaptiveScalar += this->stepSizeRobbinsMonro * pow(1+this->counterNonAdaptive,-0.5)*(this->alpha - 0.234);
                 errorCheckNumberValid(this->nonadaptiveScalar);
                 trimNonAdaptiveValues(this->nonadaptiveScalar);
             }
-    
+
             // Update adaptive proposal stuff
             if(((this->workingIteration) % (this->updatesAdaptiveCov) == 0) && (this->workingIteration > this->burninAdaptiveCov)){
 
@@ -612,7 +614,7 @@ namespace rjmc_sero{
                     this->adaptiveScalar = this->nonadaptiveScalar;
                 }
                 else{
-                    
+
                     this->currentSampleMean = this->currentSampleMean + gainFactor*(this->currentSample-this->currentSampleMean);
                     errorCheckVectorValid(this->currentSampleMean);
                     this->adaptiveCovarianceMat = this->adaptiveCovarianceMat + gainFactor*((this->currentSample-this->currentSampleMean)*((this->currentSample)-(this->currentSampleMean)).transpose()) - gainFactor*this->adaptiveCovarianceMat;
@@ -631,12 +633,12 @@ namespace rjmc_sero{
             errorCheckNumberValid(this->adaptiveGibbsSD(this->gibbsIdx));
             trimAdaptiveValues(this->adaptiveGibbsSD(this->gibbsIdx));
         }
-        
+
         void trimNonAdaptiveValues(double value)
         {
             this->nonadaptiveScalar = log(MAX(MIN(exp(value),  this->covarMaxVal), 1e-25));
         }
-        
+
         void trimAdaptiveValues(double value)
         {
             this->adaptiveScalar = log(MAX(MIN(exp(value), this->covarMaxVal), 1e-25));
@@ -649,7 +651,7 @@ namespace rjmc_sero{
                 stop("Value: ", value);
             }
         }
-        
+
         void errorCheckVectorValid(const VectorXd& proposalSample)
         {
             for (int i = 0; i < this->numberFittedPar; i++){
@@ -659,7 +661,7 @@ namespace rjmc_sero{
                 }
             }
         }
-        
+
         void errorCheckMatrixValid(const MatrixXd& covarianceMatrix)
         {
             for (int i = 0; i < this->numberFittedPar; i++){
@@ -671,12 +673,12 @@ namespace rjmc_sero{
                 }
             }
         }
-                
+
         double uniformContinuousDist(double minValue, double maxValue)
         {
             boost::random::uniform_real_distribution<> u(minValue,maxValue); return u(rng);
         }
-        
+
         double uniformDiscreteDist(int minValue, int maxValue)
         {
             boost::random::uniform_int_distribution<> u(minValue, maxValue); return u(rng);
@@ -686,7 +688,7 @@ namespace rjmc_sero{
         {
             boost::random::normal_distribution<> n(mean, sigma); return n(rng);
         }
-            
+
         void consoleUpdatefunction()
         {
             int i = this->workingIteration;
